@@ -1,7 +1,9 @@
 package fr.aryvoxx.projava.model;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class Chapter {
     private int id;
@@ -12,6 +14,7 @@ public class Chapter {
     private boolean requiresLuckTest;
     private int luckTestSuccessChapter;
     private int luckTestFailureChapter;
+    private Map<String, Integer> statModifiers;
 
     public Chapter(int id, String text) {
         this.id = id;
@@ -19,6 +22,7 @@ public class Chapter {
         this.choices = new ArrayList<>();
         this.requiresCombat = false;
         this.requiresLuckTest = false;
+        this.statModifiers = new HashMap<>();
     }
 
     public void addChoice(String text, int nextChapter) {
@@ -36,6 +40,10 @@ public class Chapter {
         this.luckTestFailureChapter = failureChapter;
     }
 
+    public void addStatModifier(String stat, int value) {
+        this.statModifiers.put(stat, value);
+    }
+
     // Getters
     public int getId() { return id; }
     public String getText() { return text; }
@@ -45,4 +53,14 @@ public class Chapter {
     public boolean requiresLuckTest() { return requiresLuckTest; }
     public int getLuckTestSuccessChapter() { return luckTestSuccessChapter; }
     public int getLuckTestFailureChapter() { return luckTestFailureChapter; }
+    public Map<String, Integer> getStatModifiers() { return statModifiers; }
+
+    // Setters
+    public void setText(String text) {
+        this.text = text;
+    }
+
+    public void setId(int id) {
+        this.id = id;
+    }
 } 

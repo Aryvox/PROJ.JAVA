@@ -6,6 +6,7 @@ import fr.aryvoxx.projava.model.Chapter;
 import fr.aryvoxx.projava.model.Choice;
 import fr.aryvoxx.projava.model.Creature;
 import fr.aryvoxx.projava.model.Item;
+import fr.aryvoxx.projava.model.Scenario;
 import javax.swing.*;
 import javax.swing.border.*;
 import java.awt.*;
@@ -15,15 +16,25 @@ import javax.swing.plaf.basic.BasicScrollBarUI;
 
 public class GameFrame extends JFrame {
     private JPanel mainPanel;
+    private JPanel menuPanel;
     private CardLayout cardLayout;
     private Personnage personnage;
     private Color backgroundColor = new Color(32, 33, 36);
     private Color foregroundColor = new Color(232, 234, 237);
     private Color accentColor = new Color(138, 180, 248);
+    private Color panelColor = new Color(48, 49, 52);
     private ImageIcon avatarIcon;
     private JLabel avatarLabel;
-    private JProgressBar healthBar;
-    private JProgressBar staminaBar;
+    private JProgressBar santeBar;
+    private JProgressBar habileteBar;
+    private JProgressBar enduranceBar;
+    private JProgressBar chanceBar;
+    private JProgressBar provisionsBar;
+    private JLabel santeValueLabel;
+    private JLabel habileteValueLabel;
+    private JLabel enduranceValueLabel;
+    private JLabel chanceValueLabel;
+    private JLabel provisionsValueLabel;
     private JLabel gameAvatarLabel;
     private JLabel playerNameLabel;
     private static final String SAVE_FILE = "save.dat";
@@ -40,6 +51,9 @@ public class GameFrame extends JFrame {
     private Creature currentEnemy;
     private int combatAssautCount = 0;
     private int maxAssauts = -1;
+    private JPanel characterCreationPanel;
+    private JTextField nameField;
+    private JComboBox<String> avatarComboBox;
 
     public GameFrame() {
         setTitle("Livre dont vous êtes le héros");
@@ -60,39 +74,45 @@ public class GameFrame extends JFrame {
     }
 
     private void createMainMenu() {
-        JPanel menuPanel = new JPanel(new GridBagLayout()) {
-            @Override
-            protected void paintComponent(Graphics g) {
-                super.paintComponent(g);
-                Graphics2D g2d = (Graphics2D) g;
-                g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
-                GradientPaint gp = new GradientPaint(0, 0, new Color(32, 33, 36),
-                        0, getHeight(), new Color(48, 49, 52));
-                g2d.setPaint(gp);
-                g2d.fillRect(0, 0, getWidth(), getHeight());
-            }
-        };
-        
+        menuPanel = new JPanel(new GridBagLayout());
+        menuPanel.setBackground(backgroundColor);
         GridBagConstraints gbc = new GridBagConstraints();
+        gbc.gridwidth = GridBagConstraints.REMAINDER;
+        gbc.fill = GridBagConstraints.HORIZONTAL;
         gbc.insets = new Insets(10, 10, 10, 10);
 
-        // Style personnalisé pour les boutons
         JButton newGameButton = createStyledButton("Nouvelle Partie");
-        JButton loadGameButton = createStyledButton("Charger Partie");
-        JButton quitButton = createStyledButton("Quitter");
+        newGameButton.addActionListener(e -> {
+            // Afficher la sélection du scénario avant la création du personnage
+            showScenarioSelection();
+        });
 
-        newGameButton.addActionListener(e -> cardLayout.show(mainPanel, "CREATION"));
+        JButton loadGameButton = createStyledButton("Charger Partie");
         loadGameButton.addActionListener(e -> loadGame());
+
+        JButton helpButton = createStyledButton("Aide");
+        helpButton.addActionListener(e -> showHelp());
+
+        JButton editorButton = createStyledButton("Éditeur de Scénario");
+        editorButton.addActionListener(e -> {
+            // Créer un nouveau StoryManager avec un personnage temporaire
+            Personnage tempPersonnage = new Personnage("Temp", "Guerrier");
+            StoryManager storyManager = new StoryManager(tempPersonnage);
+            ScenarioEditor editor = new ScenarioEditor(storyManager);
+            editor.setVisible(true);
+        });
+
+        JButton quitButton = createStyledButton("Quitter");
         quitButton.addActionListener(e -> System.exit(0));
 
-        gbc.gridy = 0;
         menuPanel.add(newGameButton, gbc);
-        gbc.gridy = 1;
         menuPanel.add(loadGameButton, gbc);
-        gbc.gridy = 2;
+        menuPanel.add(helpButton, gbc);
+        menuPanel.add(editorButton, gbc);
         menuPanel.add(quitButton, gbc);
 
         mainPanel.add(menuPanel, "MENU");
+        cardLayout.show(mainPanel, "MENU");
     }
 
     private void createCharacterCreation() {
@@ -115,8 +135,14 @@ public class GameFrame extends JFrame {
         // Création des composants avec style
         JLabel nameLabel = new JLabel("Nom du personnage:");
         nameLabel.setForeground(foregroundColor);
-        JTextField nameField = new JTextField(20);
+        nameField = new JTextField(20);
         styleTextField(nameField);
+
+        // Type d'avatar
+        JLabel avatarTypeLabel = new JLabel("Type d'avatar:");
+        avatarTypeLabel.setForeground(foregroundColor);
+        String[] avatarTypes = {"Guerrier", "Mage", "Archer"};
+        avatarComboBox = new JComboBox<>(avatarTypes);
 
         JButton avatarButton = createStyledButton("Choisir Avatar");
         avatarLabel = new JLabel();
@@ -155,11 +181,10 @@ public class GameFrame extends JFrame {
 
         createButton.addActionListener(e -> {
             String name = nameField.getText();
+            String avatarType = (String) avatarComboBox.getSelectedItem();
             if (!name.isEmpty() && avatarIcon != null) {
-                personnage = new Personnage(name);
-                updateGameAvatar();
-                cardLayout.show(mainPanel, "GAME");
-                startGame();
+                personnage = new Personnage(name, avatarType);
+                showAttributeDistributionPanel();
             } else {
                 JOptionPane.showMessageDialog(this, "Veuillez entrer un nom et choisir un avatar");
             }
@@ -175,12 +200,18 @@ public class GameFrame extends JFrame {
         creationPanel.add(nameField, gbc);
         
         gbc.gridx = 0; gbc.gridy = 1;
+        creationPanel.add(avatarTypeLabel, gbc);
+        
+        gbc.gridx = 1;
+        creationPanel.add(avatarComboBox, gbc);
+        
+        gbc.gridx = 0; gbc.gridy = 2;
         creationPanel.add(avatarButton, gbc);
         
         gbc.gridx = 1;
         creationPanel.add(avatarContainer, gbc);
         
-        gbc.gridx = 0; gbc.gridy = 2;
+        gbc.gridx = 0; gbc.gridy = 3;
         creationPanel.add(createButton, gbc);
         
         gbc.gridx = 1;
@@ -255,7 +286,7 @@ public class GameFrame extends JFrame {
         playerInfoPanel.add(avatarPanel, gbc);
 
         // Stats avec fond semi-transparent
-        JPanel statsPanel = new JPanel(new GridLayout(4, 1, 5, 5)) {
+        JPanel statsPanel = new JPanel(new GridLayout(5, 1, 5, 5)) {
             @Override
             protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
@@ -268,18 +299,19 @@ public class GameFrame extends JFrame {
         statsPanel.setOpaque(false);
         statsPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
-        JLabel healthLabel = new JLabel("Santé");
-        healthLabel.setForeground(foregroundColor);
-        healthBar = createStyledProgressBar(100, new Color(255, 99, 71));
-        
-        JLabel staminaLabel = new JLabel("Énergie");
-        staminaLabel.setForeground(foregroundColor);
-        staminaBar = createStyledProgressBar(100, new Color(65, 105, 225));
+        // Création des panels pour chaque statistique
+        JPanel santePanel = createStatPanel("Santé", new Color(255, 0, 0));
+        JPanel habiletePanel = createStatPanel("Habileté", new Color(255, 215, 0));
+        JPanel endurancePanel = createStatPanel("Endurance", new Color(255, 99, 71));
+        JPanel chancePanel = createStatPanel("Chance", new Color(65, 105, 225));
+        JPanel provisionsPanel = createStatPanel("Provisions", new Color(50, 205, 50));
 
-        statsPanel.add(healthLabel);
-        statsPanel.add(healthBar);
-        statsPanel.add(staminaLabel);
-        statsPanel.add(staminaBar);
+        // Ajout des panels au panel principal
+        statsPanel.add(santePanel);
+        statsPanel.add(habiletePanel);
+        statsPanel.add(endurancePanel);
+        statsPanel.add(chancePanel);
+        statsPanel.add(provisionsPanel);
 
         gbc.gridy = 1;
         gbc.insets = new Insets(20, 0, 0, 0);
@@ -295,12 +327,22 @@ public class GameFrame extends JFrame {
         // Bouton de sauvegarde
         JButton saveButton = createStyledButton("Sauvegarder");
         saveButton.setPreferredSize(new Dimension(200, 30));
-        saveButton.addActionListener(e -> saveGame());
+        saveButton.addActionListener(e -> saveGameWithName());
+
+        // Bouton Accueil
+        JButton homeButton = createStyledButton("Accueil");
+        homeButton.setPreferredSize(new Dimension(200, 30));
+        homeButton.addActionListener(e -> cardLayout.show(mainPanel, "MENU"));
 
         // Organisation du panel gauche
         leftPanel.add(playerInfoPanel, BorderLayout.NORTH);
         leftPanel.add(choicesPanel, BorderLayout.CENTER);
-        leftPanel.add(saveButton, BorderLayout.SOUTH);
+        JPanel bottomPanel = new JPanel();
+        bottomPanel.setOpaque(false);
+        bottomPanel.setLayout(new GridLayout(2, 1, 10, 10));
+        bottomPanel.add(saveButton);
+        bottomPanel.add(homeButton);
+        leftPanel.add(bottomPanel, BorderLayout.SOUTH);
 
         // Zone de texte principale (créée une seule fois)
         rightPanel = new JPanel(new BorderLayout());
@@ -399,25 +441,128 @@ public class GameFrame extends JFrame {
     }
 
     private JProgressBar createStyledProgressBar(int max, Color foreground) {
-        JProgressBar bar = new JProgressBar(0, max);
-        bar.setValue(max);
+        JProgressBar bar = new JProgressBar(0, max) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2d = (Graphics2D) g;
+                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                
+                // Dessiner la barre de progression
+                int width = getWidth();
+                int height = getHeight();
+                
+                // Calculer la progression en fonction de la valeur maximale
+                double percentComplete = (double) getValue() / getMaximum();
+                int progress = (int) (width * percentComplete);
+                
+                // Fond de la barre
+                g2d.setColor(getBackground());
+                g2d.fillRoundRect(0, 0, width, height, 10, 10);
+                
+                // Barre de progression
+                g2d.setColor(getForeground());
+                g2d.fillRoundRect(0, 0, progress, height, 10, 10);
+                
+                // Texte de la valeur actuelle
+                String text = String.valueOf(getValue());
+                g2d.setColor(Color.BLACK);
+                g2d.setFont(new Font("Arial", Font.BOLD, 12));
+                
+                // Centrer le texte
+                FontMetrics fm = g2d.getFontMetrics();
+                int textWidth = fm.stringWidth(text);
+                int textHeight = fm.getHeight();
+                int x = (width - textWidth) / 2;
+                int y = (height - textHeight) / 2 + fm.getAscent();
+                
+                // Dessiner le texte
+                g2d.drawString(text, x, y);
+            }
+        };
+        bar.setValue(0);
         bar.setForeground(foreground);
         bar.setBackground(new Color(32, 33, 36));
         bar.setBorder(null);
-        bar.setPreferredSize(new Dimension(200, 15));
+        bar.setPreferredSize(new Dimension(200, 25));
+        bar.setStringPainted(false);
         return bar;
     }
 
-    private void saveGame() {
+    private JPanel createStatPanel(String name, Color color) {
+        JPanel panel = new JPanel(new BorderLayout(5, 0));
+        panel.setOpaque(false);
+
+        // Label du nom
+        JLabel nameLabel = new JLabel(name);
+        nameLabel.setForeground(foregroundColor);
+        nameLabel.setFont(new Font("Arial", Font.BOLD, 14));
+
+        // Label de la valeur maximale
+        JLabel maxValueLabel = new JLabel();
+        maxValueLabel.setForeground(foregroundColor);
+        maxValueLabel.setFont(new Font("Arial", Font.PLAIN, 12));
+
+        // Panel pour le nom et la valeur maximale
+        JPanel labelPanel = new JPanel(new BorderLayout());
+        labelPanel.setOpaque(false);
+        labelPanel.add(nameLabel, BorderLayout.WEST);
+        labelPanel.add(maxValueLabel, BorderLayout.EAST);
+
+        // Barre de progression
+        JProgressBar progressBar = createStyledProgressBar(100, color);
+
+        // Ajout des composants au panel
+        panel.add(labelPanel, BorderLayout.NORTH);
+        panel.add(progressBar, BorderLayout.CENTER);
+
+        // Stockage des références
+        switch (name) {
+            case "Santé":
+                santeBar = progressBar;
+                santeValueLabel = maxValueLabel;
+                break;
+            case "Habileté":
+                habileteBar = progressBar;
+                habileteValueLabel = maxValueLabel;
+                break;
+            case "Endurance":
+                enduranceBar = progressBar;
+                enduranceValueLabel = maxValueLabel;
+                break;
+            case "Chance":
+                chanceBar = progressBar;
+                chanceValueLabel = maxValueLabel;
+                break;
+            case "Provisions":
+                provisionsBar = progressBar;
+                provisionsValueLabel = maxValueLabel;
+                break;
+        }
+
+        return panel;
+    }
+
+    private void saveGameWithName() {
         if (personnage == null) {
             JOptionPane.showMessageDialog(this, "Aucune partie en cours à sauvegarder.");
             return;
         }
-
-        try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(SAVE_FILE))) {
+        String name = JOptionPane.showInputDialog(this, "Nom de la sauvegarde :", "Sauvegarder la partie", JOptionPane.PLAIN_MESSAGE);
+        if (name == null || name.trim().isEmpty()) {
+            return;
+        }
+        String fileName = "save_" + name.trim().replaceAll("[^a-zA-Z0-9_-]", "_") + ".dat";
+        try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(fileName))) {
             oos.writeObject(personnage);
             oos.writeObject(avatarIcon);
-            JOptionPane.showMessageDialog(this, "Partie sauvegardée avec succès !");
+            // Sauvegarder le chapitre courant
+            if (storyManager != null && storyManager.getCurrentChapter() != null) {
+                oos.writeInt(storyManager.getCurrentChapter().getId());
+            } else {
+                oos.writeInt(1); // par défaut chapitre 1
+            }
+            JOptionPane.showMessageDialog(this, "Partie sauvegardée sous '" + fileName + "' !");
         } catch (IOException e) {
             e.printStackTrace();
             JOptionPane.showMessageDialog(this, "Erreur lors de la sauvegarde : " + e.getMessage());
@@ -425,21 +570,43 @@ public class GameFrame extends JFrame {
     }
 
     private void loadGame() {
-        File saveFile = new File(SAVE_FILE);
-        if (!saveFile.exists()) {
+        File dir = new File(".");
+        File[] saves = dir.listFiles((d, name) -> name.startsWith("save_") && name.endsWith(".dat"));
+        if (saves == null || saves.length == 0) {
             JOptionPane.showMessageDialog(this, "Aucune sauvegarde trouvée.");
             return;
         }
-
-        try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(SAVE_FILE))) {
+        String[] options = new String[saves.length];
+        for (int i = 0; i < saves.length; i++) {
+            options[i] = saves[i].getName().replaceFirst("save_", "").replaceFirst("\\.dat$", "");
+        }
+        String selected = (String) JOptionPane.showInputDialog(this, "Choisissez une sauvegarde :", "Charger Partie", JOptionPane.PLAIN_MESSAGE, null, options, options[0]);
+        if (selected == null) return;
+        String fileName = "save_" + selected + ".dat";
+        File saveFile = new File(fileName);
+        if (!saveFile.exists()) {
+            JOptionPane.showMessageDialog(this, "Sauvegarde introuvable.");
+            return;
+        }
+        try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(fileName))) {
             personnage = (Personnage) ois.readObject();
             avatarIcon = (ImageIcon) ois.readObject();
-            
+            int chapitreId = 1;
+            try {
+                chapitreId = ois.readInt();
+            } catch (Exception ex) {
+                chapitreId = 1;
+            }
             if (personnage != null && avatarIcon != null) {
                 updateGameAvatar();
                 updateStats();
                 cardLayout.show(mainPanel, "GAME");
                 startGame();
+                // Aller au bon chapitre après le chargement
+                if (storyManager != null) {
+                    storyManager.goToChapter(chapitreId);
+                    updateStory();
+                }
                 JOptionPane.showMessageDialog(this, "Partie chargée avec succès !");
             } else {
                 JOptionPane.showMessageDialog(this, "Erreur lors du chargement de la sauvegarde.");
@@ -458,16 +625,75 @@ public class GameFrame extends JFrame {
         }
     }
 
-    private void updateStats() {
-        if (personnage != null && healthBar != null && staminaBar != null) {
-            healthBar.setValue(personnage.getPointsDeVie());
-            staminaBar.setValue(personnage.getAgilite() * 10);
+    public void updateStats() {
+        if (personnage != null) {
+            // Mise à jour des barres de progression avec les valeurs exactes
+            int santeMax = personnage.getSanteInitiale();
+            int santeActuelle = personnage.getSante();
+            santeBar.setMaximum(santeMax);
+            santeBar.setValue(santeActuelle);
+            
+            int habileteMax = personnage.getHabileteInitiale();
+            int habileteActuelle = personnage.getHabilete();
+            habileteBar.setMaximum(habileteMax);
+            habileteBar.setValue(habileteActuelle);
+            
+            int enduranceMax = personnage.getEnduranceInitiale();
+            int enduranceActuelle = personnage.getEndurance();
+            enduranceBar.setMaximum(enduranceMax);
+            enduranceBar.setValue(enduranceActuelle);
+            
+            int chanceMax = personnage.getChanceInitiale();
+            int chanceActuelle = personnage.getChance();
+            chanceBar.setMaximum(chanceMax);
+            chanceBar.setValue(chanceActuelle);
+            
+            int provisionsMax = 10;
+            int provisionsActuelle = personnage.getProvisions();
+            provisionsBar.setMaximum(provisionsMax);
+            provisionsBar.setValue(provisionsActuelle);
+
+            // Mise à jour des labels de valeurs maximales
+            santeValueLabel.setText(String.format("/%d", santeMax));
+            habileteValueLabel.setText(String.format("/%d", habileteMax));
+            enduranceValueLabel.setText(String.format("/%d", enduranceMax));
+            chanceValueLabel.setText(String.format("/%d", chanceMax));
+            provisionsValueLabel.setText(String.format("/%d", provisionsMax));
+
+            // Forcer la mise à jour visuelle des barres
+            santeBar.repaint();
+            habileteBar.repaint();
+            enduranceBar.repaint();
+            chanceBar.repaint();
+            provisionsBar.repaint();
+            
+            // Print pour vérifier les valeurs lues
+            System.out.println("Updating stats UI:");
+            System.out.println("Santé: " + santeActuelle + "/" + santeMax);
+            System.out.println("Habileté: " + habileteActuelle + "/" + habileteMax);
+            System.out.println("Endurance: " + enduranceActuelle + "/" + enduranceMax);
+            System.out.println("Chance: " + chanceActuelle + "/" + chanceMax);
+            System.out.println("Provisions: " + provisionsActuelle + "/" + provisionsMax);
         }
     }
 
+    public void showMainMenu() {
+        cardLayout.show(mainPanel, "MENU");
+    }
+
     private void startGame() {
-        storyManager = new StoryManager(personnage);
+        if (storyManager == null) {
+            // Si aucun scénario n'est chargé, demander à l'utilisateur d'en choisir un
+            showScenarioSelection();
+            return;
+        }
+        
+        // Mettre à jour le personnage dans le StoryManager
+        storyManager.setPersonnage(personnage);
+        personnage.setGameFrame(this);
         updateStory();
+        updateStats();
+        cardLayout.show(mainPanel, "GAME");
     }
 
     private void updateStory() {
@@ -664,6 +890,309 @@ public class GameFrame extends JFrame {
         choicesPanel.add(luckButton);
         choicesPanel.revalidate();
         choicesPanel.repaint();
+    }
+
+    private void showHelp() {
+        String doc = "Bienvenue dans le jeu !\n\n" +
+                "But du jeu :\n" +
+                "- Parcourez l'aventure, faites des choix, combattez des ennemis et tentez votre chance.\n" +
+                "- Chaque chapitre propose des choix qui influencent la suite de l'histoire.\n" +
+                "- Les combats se déroulent en tour par tour.\n" +
+                "- Utilisez votre inventaire pour vous soigner ou gagner des bonus.\n\n" +
+                "Commandes :\n" +
+                "- Cliquez sur les boutons de choix pour avancer.\n" +
+                "- Utilisez le bouton 'Sauvegarder' pour enregistrer votre progression.\n" +
+                "- Utilisez le bouton 'Inventaire' en combat pour utiliser un objet.\n\n" +
+                "Conseils :\n" +
+                "- Lisez bien chaque texte avant de choisir.\n" +
+                "- Certains choix peuvent avoir des conséquences inattendues !\n\n" +
+                "Bonne aventure !";
+        JOptionPane.showMessageDialog(this, doc, "Aide - Comment jouer", JOptionPane.INFORMATION_MESSAGE);
+    }
+
+    private void createCharacterCreationPanel() {
+        characterCreationPanel = new JPanel(new GridBagLayout());
+        characterCreationPanel.setBackground(new Color(0, 0, 0, 200));
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(5, 5, 5, 5);
+
+        // Titre
+        JLabel titleLabel = new JLabel("Création du Personnage");
+        titleLabel.setFont(new Font("Arial", Font.BOLD, 24));
+        titleLabel.setForeground(Color.WHITE);
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        gbc.gridwidth = 2;
+        characterCreationPanel.add(titleLabel, gbc);
+
+        // Nom du personnage
+        gbc.gridy = 1;
+        gbc.gridwidth = 1;
+        characterCreationPanel.add(new JLabel("Nom:"), gbc);
+        nameField = new JTextField(20);
+        gbc.gridx = 1;
+        characterCreationPanel.add(nameField, gbc);
+
+        // Type d'avatar
+        gbc.gridx = 0;
+        gbc.gridy = 2;
+        characterCreationPanel.add(new JLabel("Type d'avatar:"), gbc);
+        String[] avatarTypes = {"Guerrier", "Mage", "Archer"};
+        avatarComboBox = new JComboBox<>(avatarTypes);
+        gbc.gridx = 1;
+        characterCreationPanel.add(avatarComboBox, gbc);
+
+        // Bouton de création
+        JButton createButton = new JButton("Créer le personnage");
+        createButton.addActionListener(e -> {
+            String nom = nameField.getText();
+            String avatarType = (String) avatarComboBox.getSelectedItem();
+            if (!nom.isEmpty()) {
+                personnage = new Personnage(nom, avatarType);
+                showAttributeDistributionPanel();
+            } else {
+                JOptionPane.showMessageDialog(this, "Veuillez entrer un nom pour votre personnage.");
+            }
+        });
+        gbc.gridx = 0;
+        gbc.gridy = 3;
+        gbc.gridwidth = 2;
+        characterCreationPanel.add(createButton, gbc);
+    }
+
+    private void showAttributeDistributionPanel() {
+        JPanel distributionPanel = new JPanel(new GridBagLayout()) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2d = (Graphics2D) g;
+                g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+                GradientPaint gp = new GradientPaint(0, 0, new Color(32, 33, 36),
+                        0, getHeight(), new Color(48, 49, 52));
+                g2d.setPaint(gp);
+                g2d.fillRect(0, 0, getWidth(), getHeight());
+            }
+        };
+        
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(5, 5, 5, 5);
+
+        // Titre
+        JLabel titleLabel = new JLabel("Distribution des Points");
+        titleLabel.setFont(new Font("Arial", Font.BOLD, 24));
+        titleLabel.setForeground(Color.WHITE);
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        gbc.gridwidth = 3;
+        distributionPanel.add(titleLabel, gbc);
+
+        // Points disponibles
+        JLabel pointsLabel = new JLabel("Points disponibles: " + personnage.getPointsDisponibles());
+        pointsLabel.setForeground(Color.WHITE);
+        pointsLabel.setFont(new Font("Arial", Font.BOLD, 16));
+        gbc.gridy = 1;
+        distributionPanel.add(pointsLabel, gbc);
+
+        // Panel pour les attributs avec fond semi-transparent
+        JPanel attributesPanel = new JPanel(new GridLayout(4, 3, 10, 10)) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2d = (Graphics2D) g;
+                g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+                g2d.setColor(new Color(48, 49, 52, 200));
+                g2d.fillRoundRect(0, 0, getWidth(), getHeight(), 15, 15);
+            }
+        };
+        attributesPanel.setOpaque(false);
+        attributesPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+
+        // Attributs
+        String[] attributes = {"Habileté", "Endurance", "Chance", "Santé"};
+        JButton[] plusButtons = new JButton[4];
+        JLabel[] valueLabels = new JLabel[4];
+
+        for (int i = 0; i < attributes.length; i++) {
+            final int index = i;
+            
+            // Label de l'attribut
+            JLabel attrLabel = new JLabel(attributes[i]);
+            attrLabel.setForeground(Color.WHITE);
+            attrLabel.setFont(new Font("Arial", Font.BOLD, 14));
+            attributesPanel.add(attrLabel);
+
+            // Valeur actuelle
+            valueLabels[i] = new JLabel(getAttributeValue(i));
+            valueLabels[i].setForeground(Color.WHITE);
+            valueLabels[i].setFont(new Font("Arial", Font.PLAIN, 14));
+            attributesPanel.add(valueLabels[i]);
+
+            // Bouton +
+            plusButtons[i] = createStyledButton("+");
+            plusButtons[i].setPreferredSize(new Dimension(40, 30));
+            plusButtons[i].addActionListener(e -> {
+                if (personnage.getPointsDisponibles() > 0) {
+                    boolean success = false;
+                    switch (index) {
+                        case 0: success = personnage.augmenterHabilete(); break;
+                        case 1: success = personnage.augmenterEndurance(); break;
+                        case 2: success = personnage.augmenterChance(); break;
+                        case 3: success = personnage.augmenterSante(); break;
+                    }
+                    if (success) {
+                        pointsLabel.setText("Points disponibles: " + personnage.getPointsDisponibles());
+                        valueLabels[index].setText(getAttributeValue(index));
+                        if (personnage.getPointsDisponibles() == 0) {
+                            for (JButton button : plusButtons) {
+                                button.setEnabled(false);
+                            }
+                        }
+                    }
+                }
+            });
+            attributesPanel.add(plusButtons[i]);
+        }
+
+        gbc.gridy = 2;
+        gbc.gridwidth = 3;
+        distributionPanel.add(attributesPanel, gbc);
+
+        // Panel pour les boutons
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 10));
+        buttonPanel.setOpaque(false);
+
+        // Bouton de confirmation
+        JButton confirmButton = createStyledButton("Commencer l'aventure");
+        confirmButton.setPreferredSize(new Dimension(200, 40));
+        confirmButton.addActionListener(e -> {
+            if (personnage.getPointsDisponibles() == 0) {
+                // Log values before updating UI
+                System.out.println("Values before starting game and updating UI:");
+                System.out.println("Santé: " + personnage.getSante());
+                System.out.println("Habileté: " + personnage.getHabilete());
+                System.out.println("Endurance: " + personnage.getEndurance());
+                System.out.println("Chance: " + personnage.getChance());
+                System.out.println("Provisions: " + personnage.getProvisions());
+
+                updateGameAvatar();
+                mainPanel.add(distributionPanel, "DISTRIBUTION");
+                cardLayout.show(mainPanel, "GAME");
+                startGame();
+                updateStats(); // Ensure stats are updated right after showing game view
+            } else {
+                JOptionPane.showMessageDialog(this, 
+                    "Veuillez utiliser tous vos points avant de continuer.",
+                    "Points restants",
+                    JOptionPane.WARNING_MESSAGE);
+            }
+        });
+
+        // Bouton retour
+        JButton backButton = createStyledButton("Retour");
+        backButton.setPreferredSize(new Dimension(200, 40));
+        backButton.addActionListener(e -> cardLayout.show(mainPanel, "CREATION"));
+
+        buttonPanel.add(confirmButton);
+        buttonPanel.add(backButton);
+
+        gbc.gridy = 3;
+        distributionPanel.add(buttonPanel, gbc);
+
+        // Remplacer le panneau actuel
+        mainPanel.add(distributionPanel, "DISTRIBUTION");
+        cardLayout.show(mainPanel, "DISTRIBUTION");
+        revalidate();
+        repaint();
+    }
+
+    private String getAttributeValue(int index) {
+        switch (index) {
+            case 0: return String.valueOf(personnage.getHabilete());
+            case 1: return String.valueOf(personnage.getEndurance());
+            case 2: return String.valueOf(personnage.getChance());
+            case 3: return String.valueOf(personnage.getSante());
+            default: return "";
+        }
+    }
+
+    private void showScenarioSelection() {
+        // Créer un panel pour la sélection du scénario
+        JPanel scenarioPanel = new JPanel(new GridBagLayout());
+        scenarioPanel.setBackground(backgroundColor);
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.gridwidth = GridBagConstraints.REMAINDER;
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.insets = new Insets(10, 10, 10, 10);
+
+        // Titre
+        JLabel titleLabel = new JLabel("Choisissez un scénario");
+        titleLabel.setFont(new Font("Arial", Font.BOLD, 24));
+        titleLabel.setForeground(foregroundColor);
+        scenarioPanel.add(titleLabel, gbc);
+
+        // Liste des scénarios
+        JList<String> scenarioList = new JList<>();
+        DefaultListModel<String> listModel = new DefaultListModel<>();
+        
+        // Chercher tous les fichiers .txt dans le répertoire
+        File dir = new File(".");
+        File[] files = dir.listFiles((d, name) -> name.endsWith(".txt"));
+        
+        if (files != null) {
+            for (File file : files) {
+                listModel.addElement(file.getName());
+            }
+        }
+
+        scenarioList.setModel(listModel);
+        scenarioList.setBackground(panelColor);
+        scenarioList.setForeground(foregroundColor);
+        scenarioList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        
+        JScrollPane scrollPane = new JScrollPane(scenarioList);
+        scrollPane.setPreferredSize(new Dimension(400, 300));
+        scenarioPanel.add(scrollPane, gbc);
+
+        // Boutons
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        buttonPanel.setBackground(backgroundColor);
+
+        JButton selectButton = createStyledButton("Sélectionner");
+        selectButton.addActionListener(e -> {
+            String selectedScenario = scenarioList.getSelectedValue();
+            if (selectedScenario != null) {
+                try {
+                    // Créer un StoryManager avec le scénario sélectionné
+                    Personnage tempPersonnage = new Personnage("Temp", "Guerrier");
+                    storyManager = new StoryManager(tempPersonnage);
+                    storyManager.setCurrentScenario(Scenario.loadFromFile(selectedScenario));
+                    
+                    // Passer à la création du personnage
+                    cardLayout.show(mainPanel, "CREATION");
+                } catch (IOException ex) {
+                    JOptionPane.showMessageDialog(this,
+                        "Erreur lors du chargement du scénario : " + ex.getMessage(),
+                        "Erreur",
+                        JOptionPane.ERROR_MESSAGE);
+                }
+            } else {
+                JOptionPane.showMessageDialog(this,
+                    "Veuillez sélectionner un scénario",
+                    "Attention",
+                    JOptionPane.WARNING_MESSAGE);
+            }
+        });
+
+        JButton backButton = createStyledButton("Retour");
+        backButton.addActionListener(e -> cardLayout.show(mainPanel, "MENU"));
+
+        buttonPanel.add(selectButton);
+        buttonPanel.add(backButton);
+        scenarioPanel.add(buttonPanel, gbc);
+
+        // Ajouter le panel au CardLayout
+        mainPanel.add(scenarioPanel, "SCENARIO_SELECTION");
+        cardLayout.show(mainPanel, "SCENARIO_SELECTION");
     }
 }
 

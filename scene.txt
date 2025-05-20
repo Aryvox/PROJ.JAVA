@@ -145,6 +145,7 @@ vous au 17. Si vous préférez rester où vous êtes et attendre de mal
 ferme, en tirant votre épée, rendez-vous au 10
 Se précipiter vers le passage voûté|17
 Rester|10
+Nouveau choix|50
 
 #17
 Lorsque vous vous précipitez vers l'obscurité du passage, vous
@@ -263,3 +264,17 @@ Malchanceux|25
 A suivre...
 Merci d'avoir joué !
 Recommencer|1
+
+#50
+NouveTedfvbdesdfvhbefjg,sfjjbjsdgbjej,djgb,dgikgsif,ksfhndfhn
+test|21
+tdfvb|29
+Aller vers le combat|51
+[MOD_STATS:ENDURANCE:2]
+[MOD_STATS:CHANCE:-2]
+[MOD_STATS:HABILETÉ:-2]
+
+#51
+Combat de fou
+[COMBAT:Amir:3:3]
+

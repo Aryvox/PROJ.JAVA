@@ -24,23 +24,54 @@ public class Creature {
         }
     }
 
-    public int getAttackStrength() {
-        return (int)(Math.random() * 6 + 1) + (int)(Math.random() * 6 + 1) + skill;
+    public String getName() {
+        return name;
     }
 
-    public void damage(int amount) {
-        stamina = Math.max(0, stamina - amount);
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public int getSkill() {
+        return skill;
+    }
+
+    public void setSkill(int skill) {
+        this.skill = skill;
+    }
+
+    public int getStamina() {
+        return stamina;
+    }
+
+    public void setStamina(int stamina) {
+        this.stamina = stamina;
+    }
+
+    public int getInitialStamina() {
+        return initialStamina;
+    }
+
+    public ImageIcon getAvatar() {
+        return avatar;
+    }
+
+    public void setAvatar(ImageIcon avatar) {
+        this.avatar = avatar;
     }
 
     public boolean isAlive() {
         return stamina > 0;
     }
 
+    public void takeDamage(int damage) {
+        stamina = Math.max(0, stamina - damage);
+    }
+
+    public int getAttackStrength() {
+        return skill + (int)(Math.random() * 6) + 1;
+    }
+
     // Getters
-    public String getName() { return name; }
-    public int getSkill() { return skill; }
-    public int getStamina() { return stamina; }
-    public int getInitialStamina() { return initialStamina; }
-    public ImageIcon getAvatar() { return avatar; }
     public String getAvatarPath() { return avatarPath; }
 } 
